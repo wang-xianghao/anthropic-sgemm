@@ -1,32 +1,39 @@
 #include <cuda.h>
-#include <macros.cuh>
 
-template <const int blockSize>
+template <const int BLOCK_SIZE>
 __global__ void sgemm_shared(int M, int N, int K, float alpha, const float *A,
-                             const float *B, float beta, float *C) {
-    const uint x = blockIdx.x * blockSize + threadIdx.x;
-    const uint y = blockIdx.y * blockSize + threadIdx.y;
+                            const float *B, float beta, float *C) {
+    const uint BM = BLOCK_SIZE;
+    const uint BN = BLOCK_SIZE;
+    const uint BK = BLOCK_SIZE;
 
-    __shared__ float sA[blockSize][blockSize];
-    __shared__ float sB[blockSize][blockSize];
+    const uint bx = blockIdx.x;
+    const uint by = blockIdx.y;
+    const uint tx = threadIdx.x % BN;
+    const uint ty = threadIdx.x / BN;
+
+    __shared__ float As[BM * BK];
+    __shared__ float Bs[BK * BN];
+
+    A = &A[by * BM * K];
+    B = &B[bx * BN];
+    C = &C[by * BM * N + bx * BN];
 
     float tmp = 0.0f;
-    for (uint ph = 0; ph < K / blockSize; ++ ph) {
-        // Load tile of A
-        sA[threadIdx.y][threadIdx.x] = A[y * K + ph * blockSize + threadIdx.x];
-
-        // Load tile of B
-        sB[threadIdx.y][threadIdx.x] = B[(ph * blockSize + threadIdx.y) * N + x];
+    for (int bkIdx = 0; bkIdx < K; bkIdx += BK) {
+        As[ty * BK + tx] = A[ty * K + tx];
+        Bs[ty * BN + tx] = B[ty * N + tx];
 
         __syncthreads();
 
-        // Compute the output
-        
-        for (int i = 0; i < blockSize; ++ i) {
-            tmp += sA[threadIdx.y][i] * sB[i][threadIdx.x];
+        for (int i = 0; i < BK; ++ i) {
+            tmp += As[ty * BK + i] * Bs[i * BN + tx];
         }
         __syncthreads();
+
+        A += BK;
+        B += BK * N;
     }
 
-    C[y * N + x] = alpha * tmp + beta * C[y * N + x];
+    C[ty * N + tx] = alpha * tmp + beta * C[ty * N + tx];
 }

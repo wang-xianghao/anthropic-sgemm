@@ -4,3 +4,4 @@
 #include "kernels/sgemm_coalesced.cuh"
 #include "kernels/sgemm_shared.cuh"
 #include "kernels/sgemm_1d_blocktiling.cuh"
+#include "kernels/sgemm_2d_blocktiling.cuh"

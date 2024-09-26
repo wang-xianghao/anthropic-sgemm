@@ -191,7 +191,7 @@ void run_sgemm_2d_blocktiling(int M, int N, int K, float alpha, float *A, float 
 
   const uint BM = 128;
   const uint BN = 128;
-  const uint BK = 8;
+  const uint BK = 8; // BK=16 is much faster. Why?
   const uint TM = 8;
   const uint TN = 8;
 
